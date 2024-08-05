@@ -5,6 +5,8 @@ dotenv.config();
 
 export { chromium, Browser, BrowserContext, Page } from 'playwright';
 export { config } from './config';
+export { createClient } from 'redis';
+export { saveJobContent } from './utils';
 
 async function main(chromium: BrowserType) {
   const browser = await chromium.launch({ headless: true });

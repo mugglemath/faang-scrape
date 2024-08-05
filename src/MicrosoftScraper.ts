@@ -1,6 +1,4 @@
-import { Page, config } from './index';
-import path from 'path';
-import fs from 'fs';
+import { Page, config, saveJobContent } from './index';
 
 /**
  * Class for scraping the Microsoft careers website filtering for Students and Graduates.
@@ -44,23 +42,6 @@ export class MicrosoftScraper {
       console.log('\"Showing x-y of z results\" text not found.');
     }
     return -1;
-  }
-
-  /**
-   * Writes the raw HTML content from the job listing to a file.
-   * @param {string} jobNumber - Name of job posting.
-   * @param {string} content - Raw HTML content.
-   */
-  async saveJobContent(jobNumber: string, content: string) {
-    const dirPath = path.join(__dirname, '../raw_content');
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
-    }
-    const filePath = path.join(dirPath, `${jobNumber}.html`);
-    fs.writeFileSync(filePath, content);
-    if (config.debug) {
-      console.log(`Content saved to ${filePath}`);
-    }
   }
 
   /**
@@ -153,7 +134,7 @@ export class MicrosoftScraper {
             const content = await this.page.$eval('#main-content', (element) => element.innerHTML);
             
             // save content
-            await this.saveJobContent(jobItemNumbers[i], content);
+            await saveJobContent(jobItemNumbers[i], content, { writeToFile: true, saveToRedis: true });
   
             await this.page.goBack();
             await this.page.waitForSelector('.ms-List-cell');
