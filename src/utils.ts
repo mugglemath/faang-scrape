@@ -1,46 +1,83 @@
 import { config, createClient } from './index';
 import path from 'path';
 import fs from 'fs';
+import { JobListing } from './types';
 
 /**
-   * Writes the raw HTML content from the job listing to a file.
-   * @param {string} jobNumber - Name of job posting.
-   * @param {string} content - Raw HTML content of the job posting.
-   * @param {Object} [options] - Options for saving or sending content.
-   * @param {boolean} [options.writeToFile=true] - Whether to write the content to a file.
-   * @param {boolean} [options.saveToRedis=true] - Whether to send the content to a Redis server.
-   * @returns {Promise<void>} A promise that resolves when the operation is complete.
-   *
-   * @throws {Error} Throws an error if there is an issue with file writing or Redis operations.
-   */
-export async function saveJobContent(jobNumber: string, content: string, options: { writeToFile?: boolean, saveToRedis?: boolean } = {}) {
-  if (options.writeToFile) {
-    const dirPath = path.join(__dirname, '../raw_content');
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
-    }
-    const filePath = path.join(dirPath, `${jobNumber}.html`);
-    fs.writeFileSync(filePath, content);
-    if (config.debug) {
-    console.log(`Content saved to ${filePath}`);
-    }
+ * Writes job content from the listing object to a file. Primarily for debugging.
+ * @param {JobListing} listing - JobListing object.
+ */
+export async function writeJobContentToFile(listing: JobListing) {
+  const dirPath = path.join(__dirname, '../raw_content');
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
   }
-  if (options.saveToRedis) {
-    const client = createClient({
-      url: 'redis://localhost:6379'
-    });
-    
-    client.on('error', (err) => console.error('Redis client error', err));
+  const filePath = path.join(dirPath, `${listing.title}.html`);
+  fs.writeFileSync(filePath, listing.content);
+  if (config.debug) {
+  console.log(`Content saved to ${filePath}`);
+  }
+}
 
-    try {
-      await client.connect();
-      const streamName = 'jobContentStream';
-      const messageId = await client.xAdd(streamName, '*', { jobNumber, content });
-      console.log(`Content sent to Redis stream: ${messageId}`);
-    } catch (error) {
-      console.error('Error sending content to Redis:', error);
-    } finally {
-      await client.quit();
-    }
+/**
+ * Produces a Redis Stream message from the listing object and sends it to the Redis server.
+ * @param {JobListing} listing - JobListing object.
+ */
+export async function produceRedisStreamMessage(listing: JobListing) {  
+  const client = createClient({
+    url: 'redis://localhost:6379'
+  });
+  
+  client.on('error', (err) => console.error('Redis client error', err));
+
+  try {
+    await client.connect();
+    const streamName = 'jobContentStream';
+    const company = listing.company;
+    const title = listing.title;
+    const content = listing.content;
+    const messageId = await client.xAdd(streamName, '*', { company, title, content });
+    console.log(`Content sent to Redis stream: ${messageId}`);
+  } catch (error) {
+    console.error('Error sending content to Redis:', error);
+  } finally {
+    await client.quit();
   }
+}
+
+/**
+ * Preprocess content by removing script and style tags along with other unnecessary information.
+ * @param {string} html - The raw content HTML.
+ * @returns {string} - Returns cleaned text.
+ */
+export function cleanHTML(html: string): string {
+  // remove script and style tags using non-greedy matching
+  html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+  html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+
+  // preserve headers and paragraphs
+  html = html.replace(/<(h[1-6]|p)[^>]*>/gi, '\n$&');
+  html = html.replace(/<\/(h[1-6]|p)>/gi, '$&\n');
+
+  // Remove all other HTML tags
+  html = html.replace(/<\/?[^>]+(>|$)/g, '');
+
+  // replace HTML entities
+  html = html.replace(/&nbsp;/g, ' ');
+  html = html.replace(/&amp;/g, '&');
+  html = html.replace(/&lt;/g, '<');
+  html = html.replace(/&gt;/g, '>');
+  html = html.replace(/&quot;/g, '"');
+  html = html.replace(/&#39;/g, "'");
+
+  // normalize whitespace
+  html = html.replace(/\s+/g, ' ').trim();
+
+  // restore preserved tags by removing placeholder newlines
+  html = html.replace(/\n\s*/g, '\n').trim();
+
+  // remove non-ASCII characters
+  html = html.replace(/[^\x20-\x7E]/g, '');
+
+  return html;
 }

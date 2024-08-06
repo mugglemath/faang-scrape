@@ -1,15 +1,16 @@
-import { Page, config, saveJobContent } from './index';
+import { Page, config, JobListing, writeJobContentToFile, produceRedisStreamMessage, cleanHTML} from './index';
 
 /**
  * Class for scraping the Microsoft careers website filtering for Students and Graduates.
  */
 export class MicrosoftScraper {
   private page: Page;
+  private listing: JobListing;
   
-  constructor(page: Page) {
+  constructor(page: Page, listing: JobListing) {
     this.page = page;
+    this.listing = listing;
   }
-
 
   /**
    * Retrieves list of job results.
@@ -101,6 +102,7 @@ export class MicrosoftScraper {
           const ariaLabel = await jobItem.getAttribute('aria-label') ?? '';
           if (ariaLabel) {
               jobItemNumbers.push(ariaLabel);
+              this.listing.id = ariaLabel;
               
               if (config.debug) console.log(ariaLabel);
   
@@ -119,6 +121,7 @@ export class MicrosoftScraper {
           
           const jobTitleElement = await jobCell.$('h2');
           const jobTitle = await jobTitleElement?.innerText();
+          this.listing.title = jobTitle ?? '';
           
           if (config.debug) console.log(`Job ${i + 1}: ${jobTitle}`);
           
@@ -132,9 +135,19 @@ export class MicrosoftScraper {
             await detailsButton.click();
             await this.page.getByText('Job number').innerText();
             const content = await this.page.$eval('#main-content', (element) => element.innerHTML);
+
+            // preprocess the raw HTML content
+            const cleanedContent = cleanHTML(content);
+
+            this.listing.content = cleanedContent;
+
+            if (config.debug) console.log(this.listing);
             
-            // save content
-            await saveJobContent(jobItemNumbers[i], content, { writeToFile: true, saveToRedis: true });
+            // save raw listing content to file if DEBUG
+            if (config.debug) await writeJobContentToFile(this.listing);
+            
+            // send listing message
+            await produceRedisStreamMessage(this.listing);
   
             await this.page.goBack();
             await this.page.waitForSelector('.ms-List-cell');
