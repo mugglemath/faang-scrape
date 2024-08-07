@@ -174,11 +174,34 @@ export class MicrosoftScraper {
               (element) => element.innerHTML,
             );
 
-            const messageId = generateUniqueId(this.listing);
+            // get date posted
+            const dateLocator = this.page.locator('div').filter({ hasText: /^Date posted/ });
+            const dateElement = dateLocator.first();
+            const dateText = await dateElement?.textContent();
+            const regex = /Date posted\s*(\w{3} \d{1,2}, \d{4})/;
+            const match = dateText?.match(regex);
+            const date = match?.[1];
+
+            // convert date to ISO format
+            if (date != undefined) {
+              const newDate = new Date(date);
+              const isoDateString = newDate.toISOString().split('T')[0];
+              this.listing.datePosted = isoDateString;
+
+              if (config.debug) console.log(`${isoDateString}`);
+
+            } else {
+              console.warn('ISO date format conversion error');
+              this.listing.datePosted = date ?? '';
+              
+              if (config.debug) console.log(date);
+            }
+
+
             // preprocess the raw HTML content
             const cleanedContent = cleanHTML(content);
-
             this.listing.content = cleanedContent;
+            const messageId = generateUniqueId(this.listing);
 
             if (config.debug) console.log(this.listing);
 

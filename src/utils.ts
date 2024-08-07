@@ -24,12 +24,12 @@ export async function writeJobContentToFile(listing: JobListing) {
 }
 
 /**
- * Creates a unique Id based off company name, listing id, and listing title.
+ * Creates a unique Id based off listing title, date posted, and company name.
  * @param {Object} listing - The job listing object.
  * @returns {string} - Unique hex string of the combined input.
  */
 export function generateUniqueId(listing: JobListing): string {
-  const combinedString = `${listing.company}${listing.id}${listing.title}`;
+  const combinedString = `${listing.title}${listing.datePosted}${listing.company}`;
   const hash: Hash = createHash('sha256');
   hash.update(combinedString);
   return hash.digest('hex');

@@ -22,6 +22,7 @@ async function main(chromium: BrowserType) {
   const listing: JobListing = {
     id: '',
     title: '',
+    datePosted: '',
     company: 'Microsoft',
     content: '',
   };
