@@ -182,21 +182,27 @@ export class MicrosoftScraper {
             const match = dateText?.match(regex);
             const date = match?.[1];
 
-            // convert date to ISO format
-            if (date != undefined) {
+            // Convert date to ISO format
+            if (date !== undefined) {
               const newDate = new Date(date);
-              const isoDateString = newDate.toISOString().split('T')[0];
-              this.listing.datePosted = isoDateString;
-
-              if (config.debug) console.log(`${isoDateString}`);
-
-            } else {
-              console.warn('ISO date format conversion error');
-              this.listing.datePosted = date ?? '';
               
+              if (!isNaN(newDate.getTime())) {
+                  const isoDateString = newDate.toISOString().split('T')[0];
+                  this.listing.datePosted = isoDateString;
+
+                  if (config.debug) console.log(`${isoDateString}`);
+              } else {
+                  console.warn('Invalid date string provided');
+                  this.listing.datePosted = '';
+
+                  if (config.debug) console.log(date);
+              }
+            } else {
+              console.warn('Date is undefined');
+              this.listing.datePosted = '';
+
               if (config.debug) console.log(date);
             }
-
 
             // preprocess the raw HTML content
             const cleanedContent = cleanHTML(content);
