@@ -6,20 +6,24 @@ dotenv.config();
 
 export { chromium, Browser, BrowserContext, Page } from 'playwright';
 export { config } from './config';
-export { createClient } from 'redis';
+export { createClient, RedisClientType } from 'redis';
 export { JobListing } from './types';
-export { writeJobContentToFile, produceRedisStreamMessage, cleanHTML } from './utils';
+export {
+  writeJobContentToFile,
+  cleanHTML,
+  addMessageWithDeduplication,
+} from './utils';
 
 async function main(chromium: BrowserType) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
   const page = await context.newPage();
-  
+
   const listing: JobListing = {
     id: '',
     title: '',
     company: 'Microsoft',
-    content: ''
+    content: '',
   };
 
   const msScraper = new MicrosoftScraper(page, listing);
@@ -27,6 +31,6 @@ async function main(chromium: BrowserType) {
   await browser.close();
 }
 
-(async() => {
+(async () => {
   main(chromium);
 })();

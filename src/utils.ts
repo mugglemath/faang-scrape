@@ -1,47 +1,73 @@
-import { config, createClient } from './index';
+import { config, createClient, RedisClientType } from './index';
 import path from 'path';
 import fs from 'fs';
 import { JobListing } from './types';
+import { createHash, Hash } from 'crypto';
 
 /**
  * Writes job content from the listing object to a file. Primarily for debugging.
- * @param {JobListing} listing - JobListing object.
+ * @param {Object} listing - The job listing object.
  */
 export async function writeJobContentToFile(listing: JobListing) {
   const dirPath = path.join(__dirname, '../raw_content');
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
-  const filePath = path.join(dirPath, `${listing.title}.html`);
+  const filePath = path.join(
+    dirPath,
+    `${listing.company} - ${listing.title}.html`,
+  );
   fs.writeFileSync(filePath, listing.content);
   if (config.debug) {
-  console.log(`Content saved to ${filePath}`);
+    console.log(`Content saved to ${filePath}`);
   }
 }
 
 /**
- * Produces a Redis Stream message from the listing object and sends it to the Redis server.
- * @param {JobListing} listing - JobListing object.
+ * Creates a unique Id based off company name, listing id, and listing title.
+ * @param {Object} listing - The job listing object.
+ * @returns {string} - Unique hex string of the combined input.
  */
-export async function produceRedisStreamMessage(listing: JobListing) {  
-  const client = createClient({
-    url: 'redis://localhost:6379'
-  });
-  
-  client.on('error', (err) => console.error('Redis client error', err));
+export function generateUniqueId(listing: JobListing): string {
+  const combinedString = `${listing.company}${listing.id}${listing.title}`;
+  const hash: Hash = createHash('sha256');
+  hash.update(combinedString);
+  return hash.digest('hex');
+}
+
+/**
+ * Checks deduplication set before adding new messages to the Redis Stream.
+ * @param {Object} listing - The job listing object.
+ * @param {string} uniqueId - Unique Id created with generateUniqueId().
+ * @param {RedisClientType} client - Redis client.
+ * @returns {Promise<void>}
+ */
+export async function addMessageWithDeduplication(
+  listing: JobListing,
+  uniqueId: string,
+  client: RedisClientType,
+) {
+  const exists = await client.sIsMember('deduplication_set', uniqueId);
+  if (exists) {
+    console.log(`Duplicate message with ID ${uniqueId}, not adding to stream.`);
+    return;
+  }
+
+  await client.sAdd('deduplication_set', uniqueId);
 
   try {
-    await client.connect();
     const streamName = 'jobContentStream';
     const company = listing.company;
     const title = listing.title;
     const content = listing.content;
-    const messageId = await client.xAdd(streamName, '*', { company, title, content });
+    const messageId = await client.xAdd(streamName, '*', {
+      company,
+      title,
+      content,
+    });
     console.log(`Content sent to Redis stream: ${messageId}`);
   } catch (error) {
     console.error('Error sending content to Redis:', error);
-  } finally {
-    await client.quit();
   }
 }
 
@@ -80,4 +106,17 @@ export function cleanHTML(html: string): string {
   html = html.replace(/[^\x20-\x7E]/g, '');
 
   return html;
+}
+
+export function createRedisClient(): RedisClientType {
+  const client: RedisClientType = createClient({
+    url: 'redis://localhost:6379',
+  });
+
+  client.on('error', (err) => console.error('Redis client error', err));
+  return client;
+}
+
+export async function connectToRedis(client: RedisClientType) {
+  await client.connect();
 }
