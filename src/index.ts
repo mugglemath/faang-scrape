@@ -20,7 +20,7 @@ async function main(chromium: BrowserType) {
   const page = await context.newPage();
 
   const listing: JobListing = {
-    id: '',
+    jobId: '',
     title: '',
     datePosted: '',
     company: 'Microsoft',

@@ -11,6 +11,8 @@ import {
   connectToRedis,
   addMessageWithDeduplication,
   generateUniqueId,
+  createGroup,
+  convertDate,
 } from './utils';
 
 /**
@@ -100,6 +102,9 @@ export class MicrosoftScraper {
       const client = createRedisClient();
       await connectToRedis(client);
 
+      // create Redis Streams group
+      await createGroup(client);
+
       // loop through each results page
       let hasNext = true;
       while (hasNext) {
@@ -136,7 +141,7 @@ export class MicrosoftScraper {
           const ariaLabel = (await jobItem.getAttribute('aria-label')) ?? '';
           if (ariaLabel) {
             jobItemNumbers.push(ariaLabel);
-            this.listing.id = ariaLabel;
+            this.listing.jobId = ariaLabel;
 
             if (config.debug) console.log(ariaLabel);
           } else if (ariaLabel === '') {
@@ -175,34 +180,17 @@ export class MicrosoftScraper {
             );
 
             // get date posted
-            const dateLocator = this.page.locator('div').filter({ hasText: /^Date posted/ });
+            const dateLocator = this.page
+              .locator('div')
+              .filter({ hasText: /^Date posted/ });
             const dateElement = dateLocator.first();
             const dateText = await dateElement?.textContent();
             const regex = /Date posted\s*(\w{3} \d{1,2}, \d{4})/;
             const match = dateText?.match(regex);
             const date = match?.[1];
 
-            // Convert date to ISO format
-            if (date !== undefined) {
-              const newDate = new Date(date);
-              
-              if (!isNaN(newDate.getTime())) {
-                  const isoDateString = newDate.toISOString().split('T')[0];
-                  this.listing.datePosted = isoDateString;
-
-                  if (config.debug) console.log(`${isoDateString}`);
-              } else {
-                  console.warn('Invalid date string provided');
-                  this.listing.datePosted = '';
-
-                  if (config.debug) console.log(date);
-              }
-            } else {
-              console.warn('Date is undefined');
-              this.listing.datePosted = '';
-
-              if (config.debug) console.log(date);
-            }
+            // convert date to ISO format
+            convertDate(date, this.listing);
 
             // preprocess the raw HTML content
             const cleanedContent = cleanHTML(content);

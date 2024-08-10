@@ -36,6 +36,30 @@ export function generateUniqueId(listing: JobListing): string {
 }
 
 /**
+ * Converts raw date from listing to ISO format for lexicographical sorting.
+ * @param {string | undefined} date - The raw date from the listing.
+ * @param {object} listing - The job listing object.
+ */
+export function convertDate(date: string | undefined, listing: JobListing) {
+  if (date !== undefined) {
+    const newDate = new Date(date);
+    if (!isNaN(newDate.getTime())) {
+      const isoDateString = newDate.toISOString().split('T')[0];
+      listing.datePosted = isoDateString;
+      if (config.debug) console.log(`${isoDateString}`);
+    } else {
+      console.warn('Invalid date string provided');
+      listing.datePosted = '';
+      if (config.debug) console.log(date);
+    }
+  } else {
+    console.warn('Date is undefined');
+    listing.datePosted = '';
+    if (config.debug) console.log(date);
+  }
+}
+
+/**
  * Checks deduplication set before adding new messages to the Redis Stream.
  * @param {Object} listing - The job listing object.
  * @param {string} uniqueId - Unique Id created with generateUniqueId().
@@ -56,18 +80,39 @@ export async function addMessageWithDeduplication(
   await client.sAdd('deduplication_set', uniqueId);
 
   try {
-    const streamName = 'jobContentStream';
-    const company = listing.company;
-    const title = listing.title;
-    const content = listing.content;
-    const messageId = await client.xAdd(streamName, '*', {
-      company,
-      title,
-      content,
-    });
+    const message = {
+      jobId: listing.jobId,
+      title: listing.title,
+      datePosted: listing.datePosted,
+      company: listing.company,
+      content: listing.content,
+    };
+    const messageId = await client.xAdd(config.streamName, '*', message);
     console.log(`Content sent to Redis stream: ${messageId}`);
   } catch (error) {
     console.error('Error sending content to Redis:', error);
+  }
+}
+
+/**
+ * Creates a Redis Streams consumer group.
+ * @param {RedisClientType} client - Redis client.
+ */
+export async function createGroup(client: RedisClientType) {
+  try {
+    await client.sendCommand([
+      'XGROUP',
+      'CREATE',
+      config.streamName,
+      config.groupName,
+      '$',
+      'MKSTREAM',
+    ]);
+    console.log(
+      `Consumer group '${config.groupName}' created for stream '${config.streamName}'.`,
+    );
+  } catch (error) {
+    console.log(`Consumer group '${config.groupName}' already exists.`);
   }
 }
 
