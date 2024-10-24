@@ -155,7 +155,7 @@ export function cleanHTML(html: string): string {
 
 export function createRedisClient(): RedisClientType {
   const client: RedisClientType = createClient({
-    url: 'redis://localhost:6379',
+    url: 'redis://redis:6379',
   });
 
   client.on('error', (err) => console.error('Redis client error', err));

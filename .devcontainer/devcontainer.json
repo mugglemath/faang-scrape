@@ -1,0 +1,20 @@
+{
+    "name": "FAANG Scrape Dev Container",
+    "dockerComposeFile": "../compose.yaml",
+    "service": "app",
+    "workspaceFolder": "/",
+    "customizations": {
+        "vscode": {
+            "settings": {
+            "editor.formatOnSave": true,
+            "eslint.validate": ["javascript", "typescript"]
+            },
+            "extensions": [
+                "esbenp.prettier-vscode",
+                "dbaeumer.vscode-eslint",
+                "ms-azuretools.vscode-docker"
+                ]
+            }
+    },
+    "postStartCommand": "cd /app && node /app/dist/index.js"
+}
