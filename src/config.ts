@@ -7,17 +7,23 @@ interface Config {
   consumerName: string;
 }
 
-/**
- * Environment variables located in .env file.
- */
+function getEnvVariable(name: string, defaultValue:string): string {
+  const value = process.env[name];
+  if (value === undefined) {
+    console.warn(`Warning: Environment variable ${name} is not set. Using default value: ${defaultValue}`);
+    return defaultValue;
+  }
+  return value;
+}
+
 export const config: Config = {
-  debug: process.env.DEBUG === 'true',
-  msJobsPage: process.env.MS_JOBS_PAGE!,
-  location: process.env.LOCATION!,
-  streamName: process.env.STREAM_NAME!,
-  groupName: process.env.GROUP_NAME!,
-  consumerName: process.env.CONSUMER_NAME!,
-};
+  debug: getEnvVariable('DEBUG', 'true') === 'true',
+  msJobsPage: getEnvVariable('MS_JOBS_PAGE', 'https://jobs.careers.microsoft.com/global/en/search'),
+  location: getEnvVariable('LOCATION', 'Redmond,'),
+  streamName: getEnvVariable('STREAM_NAME', 'jobContentStream'),
+  groupName: getEnvVariable('GROUP_NAME', 'myGroup'),
+  consumerName: getEnvVariable('CONSUMER_NAME', 'consumer1'),
+}
 
 if (config.debug) {
   console.log('Config:', config);

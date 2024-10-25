@@ -13,6 +13,7 @@ import {
   generateUniqueId,
   createGroup,
   convertDate,
+  sanitizeFileName,
 } from './utils';
 
 /**
@@ -160,7 +161,8 @@ export class MicrosoftScraper {
 
           const jobTitleElement = await jobCell.$('h2');
           const jobTitle = await jobTitleElement?.innerText();
-          this.listing.title = jobTitle ?? '';
+          const sanitizedJobTitle = sanitizeFileName(jobTitle ?? '');
+          this.listing.title = sanitizedJobTitle;
 
           if (config.debug) console.log(`Job ${i + 1}: ${jobTitle}`);
 

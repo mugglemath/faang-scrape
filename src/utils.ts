@@ -153,6 +153,14 @@ export function cleanHTML(html: string): string {
   return html;
 }
 
+export function sanitizeFileName(fileName:string): string {
+  return fileName
+    .replace(/[\/\\:*?"<>|]/g, '-')  // replace problematic characters with hyphens
+    .replace(/\s+/g, ' ')            // replace multiple spaces with a single space
+    .trim()                          // remove leading and trailing whitespace
+    .substring(0, 255);              // limit filename length
+}
+
 export function createRedisClient(): RedisClientType {
   const client: RedisClientType = createClient({
     url: 'redis://redis:6379',

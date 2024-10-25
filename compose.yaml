@@ -12,12 +12,12 @@ services:
     environment:
       - REDIS_HOST=redis
     volumes:
-      - app_data:/app/data
+      - .:/app
+      - /app/dist
+      - /app/node_modules
+      - /app/raw_content
 
   redis:
     image: redis:6.2-alpine
     ports:
       - "6379:6379"
-
-volumes:
-  app_data:
